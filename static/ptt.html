@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Fable — voice</title>
+<style>
+  /* Warm, bookish, hand-written CSS — no frameworks (house style). */
+  :root {
+    --bg: #1a1614;
+    --panel: #241f1c;
+    --ink: #e8ded2;
+    --dim: #9a8c7c;
+    --ember: #d4763b;
+    --ember-hot: #e89050;
+    --sky: #7fb4c9;
+    --danger: #c05b4d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: space-between; padding: 24px; gap: 16px;
+    -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;
+  }
+  h1 { font-size: 1.4rem; font-weight: normal; letter-spacing: 0.08em; }
+  h1 .flame { color: var(--ember); }
+  #status {
+    font-size: 0.95rem; color: var(--dim); min-height: 1.4em;
+    font-style: italic; text-align: center;
+  }
+  #status.speaking { color: var(--sky); font-style: normal; }
+  #status.listening { color: var(--ember-hot); font-style: normal; }
+  #captions {
+    flex: 1; width: 100%; max-width: 640px; overflow-y: auto;
+    background: var(--panel); border-radius: 12px; padding: 16px;
+    font-size: 0.95rem; line-height: 1.5;
+  }
+  #captions .you { color: var(--dim); }
+  #captions .fable { color: var(--ink); }
+  #captions p { margin: 0.4em 0; }
+  #ptt {
+    width: 170px; height: 170px; border-radius: 50%;
+    border: 3px solid var(--ember); background: var(--panel);
+    color: var(--ink); font-family: inherit; font-size: 1.05rem;
+    cursor: pointer; transition: background 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #ptt:disabled { opacity: 0.35; }
+  #ptt.open {
+    background: var(--ember); color: #1a1614;
+    box-shadow: 0 0 42px rgba(232, 144, 80, 0.55);
+  }
+  #connect {
+    background: none; border: 1px solid var(--dim); color: var(--ink);
+    font-family: inherit; font-size: 0.95rem; border-radius: 8px;
+    padding: 10px 26px; cursor: pointer;
+  }
+  #connect.on { border-color: var(--danger); color: var(--danger); }
+  footer { font-size: 0.75rem; color: var(--dim); }
+  #gear {
+    position: fixed; top: 18px; left: 18px; z-index: 10;
+    background: none; border: none; color: var(--dim); font-size: 1.5rem;
+    cursor: pointer; line-height: 1;
+  }
+  #gear:hover { color: var(--ink); }
+  #settings {
+    position: fixed; top: 54px; left: 18px; z-index: 10;
+    background: var(--panel); border: 1px solid #3a322c; border-radius: 12px;
+    padding: 16px; width: 300px; display: none;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  #settings.open { display: block; }
+  #settings h2 { font-size: 0.95rem; font-weight: normal; color: var(--dim);
+    margin-bottom: 10px; letter-spacing: 0.06em; }
+  #settings label { display: block; font-size: 0.8rem; color: var(--dim);
+    margin: 10px 0 4px; }
+  #settings select {
+    width: 100%; background: var(--bg); color: var(--ink);
+    border: 1px solid #3a322c; border-radius: 6px; padding: 6px;
+    font-family: inherit; font-size: 0.85rem;
+  }
+  #settings .row { display: flex; gap: 6px; align-items: center; }
+  #settings .row select { flex: 1; }
+  #refreshWins {
+    background: none; border: 1px solid #3a322c; border-radius: 6px;
+    color: var(--dim); cursor: pointer; padding: 5px 8px; font-size: 0.85rem;
+  }
+  #settingsStatus { font-size: 0.75rem; color: var(--ember-hot);
+    margin-top: 10px; min-height: 1.2em; }
+  #restartBtn {
+    margin-top: 12px; width: 100%; background: none; cursor: pointer;
+    border: 1px solid var(--danger); color: var(--danger);
+    border-radius: 6px; padding: 7px; font-family: inherit; font-size: 0.85rem;
+  }
+  #restartBtn:hover { background: rgba(192, 91, 77, 0.12); }
+  #settings .hint { font-size: 0.68rem; color: var(--dim); margin-top: 8px;
+    line-height: 1.35; }
+</style>
+</head>
+<body>
+  <button id="gear" title="senses & controls">⚙</button>
+  <div id="settings">
+    <h2>senses &amp; controls</h2>
+    <label>eyes — watch this window or screen</label>
+    <div class="row">
+      <select id="eyesSel"><option value="">off</option></select>
+      <button id="refreshWins" title="refresh window list">↻</button>
+    </div>
+    <label>ears — listen to this output device</label>
+    <select id="earsSel"><option value="">off</option></select>
+    <label>global push-to-talk key (hold anywhere)</label>
+    <select id="pttSel"><option value="">off</option></select>
+    <button id="restartBtn" title="restart the voice server (picks up .env changes)">⟳ restart voice server</button>
+    <div id="settingsStatus"></div>
+    <div class="hint">Eyes: one fresh frame rides each spoken turn — no tool
+    call needed. Ears: transcribes that device's audio continuously into the
+    turn context. To isolate one app's audio, route it to a device in
+    Windows Settings → Sound → Volume mixer, then pick that device here.</div>
+  </div>
+  <h1><span class="flame">◆</span> <span id="brainName">__BRAIN_NAME__</span></h1>
+  <div id="captions"></div>
+  <div id="status">not connected</div>
+  <button id="ptt" disabled>hold to talk</button>
+  <button id="connect">connect</button>
+  <footer>hold the circle (or Space) to talk — release to send · pressing while the bot speaks interrupts</footer>
+
+<script>
+(() => {
+  // Injected by voice_bot.py from FABLE_BRAIN_MODEL (e.g. "Opus 4.8").
+  const RAW_NAME = '__BRAIN_NAME__';
+  const BRAIN_NAME = RAW_NAME.startsWith('__') ? 'Claude' : RAW_NAME;
+  document.getElementById('brainName').textContent = BRAIN_NAME;
+  document.title = BRAIN_NAME + ' — voice';
+  const pttBtn = document.getElementById('ptt');
+  const connectBtn = document.getElementById('connect');
+  const statusEl = document.getElementById('status');
+  const captions = document.getElementById('captions');
+
+  let pc = null, dc = null, audioEl = null, pingTimer = null;
+  let connected = false, pttHeld = false, botSpeaking = false;
+
+  const setStatus = (text, cls = '') => {
+    statusEl.textContent = text;
+    statusEl.className = cls;
+  };
+
+  const addCaption = (who, text) => {
+    const p = document.createElement('p');
+    p.className = who;
+    p.textContent = (who === 'you' ? 'you: ' : BRAIN_NAME.toLowerCase() + ': ') + text;
+    captions.appendChild(p);
+    captions.scrollTop = captions.scrollHeight;
+  };
+
+  const sendDC = (obj) => {
+    if (dc && dc.readyState === 'open') dc.send(JSON.stringify(obj));
+  };
+
+  async function connect() {
+    setStatus('connecting…');
+    connectBtn.disabled = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true } });
+      pc = new RTCPeerConnection();
+      // Keep the mic track LIVE always — the gate is server-side (PttGate).
+      // track.enabled=false starves RTP and the server kills the receiver.
+      stream.getAudioTracks().forEach(t => pc.addTrack(t, stream));
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+
+      pc.ontrack = (ev) => {
+        if (!audioEl) { audioEl = new Audio(); audioEl.autoplay = true; }
+        audioEl.srcObject = ev.streams[0];
+      };
+
+      dc = pc.createDataChannel('chat');
+      dc.onopen = () => {
+        // Announce PTT mode immediately: gate CLOSED until held (fail-safe).
+        sendDC({ type: 'ptt-close' });
+        // The server's is_connected() wants a ping within every 3s.
+        pingTimer = setInterval(() => {
+          if (dc.readyState === 'open') dc.send('ping-' + Date.now());
+        }, 1000);
+      };
+      dc.onmessage = (ev) => {
+        if (typeof ev.data !== 'string' || ev.data.startsWith('pong')) return;
+        try {
+          const msg = JSON.parse(ev.data);
+          // The pipeline also emits RTVI-labeled duplicates of these events;
+          // we listen only to voice_bot's own messages to avoid double captions.
+          if (msg.label === 'rtvi-ai') return;
+          const t = msg.type || '';
+          const d = msg.data || {};
+          if (t === 'ptt-external') {
+            // Global hotkey drove the gate — mirror the honest mic state.
+            if (!pttHeld) {
+              const open = !!(msg.data && msg.data.open);
+              pttBtn.className = open ? 'open' : '';
+              if (open) setStatus('listening (global key)…', 'listening');
+              else setStatus(botSpeaking ? BRAIN_NAME + ' is speaking' : 'thinking…',
+                             botSpeaking ? 'speaking' : '');
+            }
+          } else if (t === 'bot-started-speaking') {
+            botSpeaking = true; setStatus(BRAIN_NAME + ' is speaking', 'speaking');
+          } else if (t === 'bot-stopped-speaking') {
+            botSpeaking = false;
+            if (!pttHeld) setStatus('connected — hold to talk');
+          } else if (t === 'user-transcription' && d.final && d.text) {
+            addCaption('you', d.text);
+          } else if (t === 'bot-tts-text' && d.text) {
+            addCaption('fable', d.text);
+          }
+        } catch { /* non-JSON server chatter is fine */ }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (['failed', 'disconnected', 'closed'].includes(pc.connectionState) && connected) {
+          teardown('connection lost');
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await new Promise(res => {
+        if (pc.iceGatheringState === 'complete') return res();
+        pc.onicegatheringstatechange = () =>
+          pc.iceGatheringState === 'complete' && res();
+        setTimeout(res, 2000);
+      });
+
+      const resp = await fetch('/api/offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sdp: pc.localDescription.sdp,
+          type: pc.localDescription.type,
+        }),
+      });
+      if (!resp.ok) throw new Error('offer failed: HTTP ' + resp.status);
+      const answer = await resp.json();
+      await pc.setRemoteDescription(answer);
+
+      connected = true;
+      connectBtn.textContent = 'disconnect';
+      connectBtn.className = 'on';
+      connectBtn.disabled = false;
+      pttBtn.disabled = false;
+      setStatus('connected — hold to talk');
+    } catch (err) {
+      console.error(err);
+      teardown('failed: ' + err.message);
+    }
+  }
+
+  function teardown(msg) {
+    if (pingTimer) clearInterval(pingTimer);
+    pingTimer = null;
+    if (pc) { try { pc.close(); } catch {} }
+    pc = null; dc = null; connected = false; pttHeld = false;
+    connectBtn.textContent = 'connect';
+    connectBtn.className = '';
+    connectBtn.disabled = false;
+    pttBtn.disabled = true;
+    pttBtn.className = '';
+    setStatus(msg || 'not connected');
+  }
+
+  function pttDown(ev) {
+    if (ev) ev.preventDefault();
+    if (!connected || pttHeld) return;
+    pttHeld = true;
+    pttBtn.className = 'open';
+    if (botSpeaking) sendDC({ type: 'ptt-interrupt' });  // the paddle always wins
+    sendDC({ type: 'ptt-open' });
+    setStatus('listening…', 'listening');
+  }
+
+  function pttUp(ev) {
+    if (ev) ev.preventDefault();
+    if (!pttHeld) return;
+    pttHeld = false;
+    pttBtn.className = '';
+    sendDC({ type: 'ptt-close' });
+    if (connected) setStatus(botSpeaking ? BRAIN_NAME + ' is speaking' : 'thinking…',
+                             botSpeaking ? 'speaking' : '');
+  }
+
+  // Pointer events cover mouse + touch; Space is the desktop paddle.
+  pttBtn.addEventListener('pointerdown', pttDown);
+  pttBtn.addEventListener('pointerup', pttUp);
+  pttBtn.addEventListener('pointercancel', pttUp);
+  pttBtn.addEventListener('pointerleave', (e) => pttHeld && pttUp(e));
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !e.repeat) pttDown(e);
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') pttUp(e);
+  });
+  // Fail-safe: anything that hides the page closes the mic.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && pttHeld) pttUp();
+  });
+
+  connectBtn.addEventListener('click', () =>
+    connected ? teardown() : connect());
+
+  // ---- settings gear: manual eyes / ears / PTT key --------------------------
+  const gear = document.getElementById('gear');
+  const panel = document.getElementById('settings');
+  const eyesSel = document.getElementById('eyesSel');
+  const earsSel = document.getElementById('earsSel');
+  const pttSel = document.getElementById('pttSel');
+  const sStatus = document.getElementById('settingsStatus');
+
+  const fill = (sel, items, current, offLabel) => {
+    sel.innerHTML = '';
+    const off = document.createElement('option');
+    off.value = ''; off.textContent = offLabel;
+    sel.appendChild(off);
+    for (const it of items) {
+      const o = document.createElement('option');
+      o.value = it.value; o.textContent = it.label;
+      sel.appendChild(o);
+    }
+    sel.value = current || '';
+    if (sel.value !== (current || '')) {  // current not in list — add it
+      const o = document.createElement('option');
+      o.value = current; o.textContent = current + ' (saved)';
+      sel.appendChild(o); sel.value = current;
+    }
+  };
+
+  async function loadSettings() {
+    sStatus.textContent = 'loading…';
+    try {
+      const r = await fetch('/api/senses');
+      const d = await r.json();
+      const eyeItems = [
+        ...d.screens.map(s => ({ value: s.split(' ')[0], label: s })),
+        ...d.windows.map(w => ({ value: w, label: w.length > 42 ? w.slice(0, 42) + '…' : w })),
+      ];
+      fill(eyesSel, eyeItems, d.current.eyes_target, 'off');
+      fill(earsSel, d.devices.map(v => ({ value: v, label: v })),
+           d.current.ears_on ? (d.current.ears_device || '__default__') : '',
+           'off');
+      // "system default" pseudo-entry for the ears
+      const def = document.createElement('option');
+      def.value = '__default__';
+      def.textContent = 'system default output (everything you hear)';
+      earsSel.insertBefore(def, earsSel.options[1]);
+      if (d.current.ears_on && !d.current.ears_device) earsSel.value = '__default__';
+      fill(pttSel, d.ptt_keys.map(k => ({ value: k, label: k })), d.ptt_key, 'off');
+      sStatus.textContent = d.current.ears_on
+        ? 'ears: ' + d.current.ears_status : '';
+    } catch (e) {
+      sStatus.textContent = 'failed to load settings: ' + e.message;
+    }
+  }
+
+  const post = async (url, body) => {
+    sStatus.textContent = 'applying…';
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      sStatus.textContent = d.status || 'ok';
+    } catch (e) {
+      sStatus.textContent = 'failed: ' + e.message;
+    }
+  };
+
+  eyesSel.addEventListener('change', () =>
+    post('/api/senses/eyes', { target: eyesSel.value || null }));
+  earsSel.addEventListener('change', () => {
+    const v = earsSel.value;
+    post('/api/senses/ears',
+         { device: v === '__default__' ? '' : v, enabled: v !== '' });
+  });
+  pttSel.addEventListener('change', () =>
+    post('/api/senses/ptt', { key: pttSel.value }));
+  document.getElementById('refreshWins').addEventListener('click', loadSettings);
+  document.getElementById('restartBtn').addEventListener('click', async () => {
+    // The fleet dashboard (:9000) owns lifecycle — one restart mechanism.
+    if (!confirm('Restart the voice server? You will be disconnected for ~40 seconds.')) return;
+    sStatus.textContent = 'asking the fleet dashboard to restart the voice server…';
+    try {
+      const r = await fetch(`http://${location.hostname}:9000/api/agents/fable-voice/restart`,
+                            { method: 'POST' });
+      const d = await r.json();
+      sStatus.textContent = (d.message || 'restarting') +
+        ' — reconnect in ~40s (refresh if the page acts stale)';
+    } catch (e) {
+      sStatus.textContent = 'fleet dashboard (:9000) unreachable — start it, ' +
+        'or restart via Task Scheduler (FableVoiceBot). ' + e.message;
+    }
+  });
+  gear.addEventListener('click', () => {
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) loadSettings();
+  });
+})();
+</script>
+</body>
+</html>

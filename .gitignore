@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+logs/
+out/
+data/
+bench_raw.jsonl
+bench_gap_run.log
+*.wav
+voices/
+fillers/

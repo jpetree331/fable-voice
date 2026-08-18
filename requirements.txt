@@ -1,0 +1,20 @@
+# Python 3.12.10 (pyenv-win) / Windows / RTX 4090 — pins mirror the proven
+# donor stack (E:\git\rowan-voice, locked at its M1/M3; see RECON.md).
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.6.0+cu126
+torchaudio==2.6.0+cu126
+chatterbox-tts==0.1.7
+# resemble-perth (chatterbox dep) imports pkg_resources, removed in setuptools>=81
+setuptools==80.9.0
+# STT — ctranslate2 needs cuDNN 9, provided by torch+cu126's bundled DLLs
+# (import torch FIRST in every entry point).
+faster-whisper==1.2.1
+sounddevice==0.5.5
+# Pipeline. pipecat pulls numpy 2 + latest opencv by default, but chatterbox
+# genuinely breaks under numpy 2 (mel filterbank dtype error) — force 1.26.4.
+pipecat-ai[webrtc,silero,whisper]==1.4.0
+pipecat-ai-prebuilt==1.0.3
+numpy==1.26.4
+opencv-python==4.10.0.84
+httpx==0.28.1
+python-dotenv==1.2.2
