@@ -6,6 +6,8 @@ is deliberate and load-bearing: the user-level CLAUDE.md makes the brain Fable
 (identity + memory rules), and the SessionStart/Stop hooks give every voice
 session automatic memory recall and retention in the family bank, plus the
 Postgres raw backup. The voice bot gets a brain that already knows Jess.
+FABLE_BRAIN_CWD overrides it (e.g. E:\Talk-Sesame) — claude sessions are
+per-directory, so a pinned FABLE_BRAIN_SESSION_ID must live under this cwd.
 
 Latency (Phase 0, measured 2026-07-15): steady-state TTFT ~1.1-2s, first
 turn ~6-8s (SessionStart recall). Naive spawn-per-turn was ~11s — this
@@ -94,11 +96,14 @@ def _claude_cmd() -> list[str]:
 class FableBrain:
     """Owns the persistent claude subprocess and its turn lifecycle."""
 
-    def __init__(self, model: str, cwd: str = BRAIN_CWD,
+    def __init__(self, model: str, cwd: str | None = None,
                  addendum: str = VOICE_ADDENDUM,
                  allowed_tools: list[str] | None = None):
         self.model = model
-        self.cwd = cwd
+        # Read at construction, not import: voice_bot imports this module
+        # before it loads .env.
+        self.cwd = (cwd or os.environ.get("FABLE_BRAIN_CWD", "").strip()
+                    or BRAIN_CWD)
         self.addendum = addendum
         # Headless sessions can't answer permission prompts — any tool not
         # pre-allowed here just fails. Voice-scoped allowlist (never touches
