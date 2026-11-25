@@ -143,7 +143,12 @@ class FableBrain:
         if resume_session:
             cmd += ["--resume", resume_session]
         env = dict(os.environ)
-        env.pop("ANTHROPIC_API_KEY", None)  # subscription only — never bill a key
+        # Subscription auth only: never bill a key, and never let a stale
+        # static token shadow the credentials store the CLI refreshes itself
+        # (a user-level CLAUDE_CODE_OAUTH_TOKEN caused the 2026-11-25 401s).
+        for var in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN",
+                    "ANTHROPIC_AUTH_TOKEN"):
+            env.pop(var, None)
         env["PYTHONUTF8"] = "1"
         t0 = time.perf_counter()
         self.proc = await asyncio.create_subprocess_exec(
