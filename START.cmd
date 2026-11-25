@@ -7,6 +7,10 @@ rem   window can close; give it ~a minute to load its models, then
 rem   open the voice page (port 8012).
 rem ============================================================
 title Starting Fable Voice...
+rem Clear any lingering voice_bot instance first (a task-level kill can
+rem orphan the python child, which then squats the port and the mutex —
+rem the 2026-11-25 ghost-restart). Makes this a clean start OR restart.
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'voice_bot\.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 schtasks /run /tn "FableVoiceBot" >nul 2>&1
 if errorlevel 1 (
     echo Could not start the FableVoiceBot task. Open Task Scheduler and
