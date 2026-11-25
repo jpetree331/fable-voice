@@ -348,8 +348,17 @@ class FableBrain:
                         spoke_tool_cue = True
                         yield {"kind": "tool"}
             elif et == "result":
-                interrupted_result = (self._interrupted.is_set()
-                                      or ev.get("is_error", False))
+                is_err = ev.get("is_error", False)
+                if is_err:
+                    # Never fail silently: the 2026-11-25 'testing 1,2,3'
+                    # turn died on a 401 and the voice just sat there.
+                    logger.warning("brain: turn errored: "
+                                   f"{str(ev.get('result'))[:300]}")
+                    if not self._interrupted.is_set():
+                        yield {"kind": "sentence",
+                               "text": ("Sorry — my brain hit an error on "
+                                        "that turn. Try me again.")}
+                interrupted_result = (self._interrupted.is_set() or is_err)
                 tail = clean_for_tts(buffer)
                 if tail and not self._interrupted.is_set():
                     yield {"kind": "sentence", "text": tail}
