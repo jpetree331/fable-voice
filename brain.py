@@ -105,6 +105,14 @@ class FableBrain:
         self.cwd = (cwd or os.environ.get("FABLE_BRAIN_CWD", "").strip()
                     or BRAIN_CWD)
         self.addendum = addendum
+        # Reasoning effort for the CLI (--effort). Read at construction, like
+        # cwd. Empty = the CLI's default.
+        self.effort = os.environ.get("FABLE_BRAIN_EFFORT", "").strip().lower()
+        if self.effort and self.effort not in {"low", "medium", "high",
+                                               "xhigh", "max"}:
+            logger.warning(
+                f"brain: ignoring invalid FABLE_BRAIN_EFFORT={self.effort!r}")
+            self.effort = ""
         # Headless sessions can't answer permission prompts — any tool not
         # pre-allowed here just fails. Voice-scoped allowlist (never touches
         # the machine's settings.json files).
@@ -128,6 +136,8 @@ class FableBrain:
             "--model", self.model,
             "--append-system-prompt", self.addendum,
         ]
+        if self.effort:
+            cmd += ["--effort", self.effort]
         if self.allowed_tools:
             cmd += ["--allowedTools", *self.allowed_tools]
         if resume_session:
